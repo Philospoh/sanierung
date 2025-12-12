@@ -18,6 +18,7 @@
     h1{font-size:22px;margin:6px 0 8px}
     h2{font-size:16px;margin:0 0 10px}
     .muted{color:var(--mut);font-size:13px;line-height:1.35}
+    .small{font-size:12px;color:var(--mut);line-height:1.35}
     .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
     .col12{grid-column:span 12}
     .col8{grid-column:span 8}
@@ -63,7 +64,6 @@
     .right{text-align:right}
     .cta{display:flex;flex-direction:column;gap:8px}
     .cta a{display:inline-block;text-decoration:none}
-    .small{font-size:12px;color:var(--mut);line-height:1.35}
     .hidden{display:none !important}
   </style>
 </head>
@@ -102,6 +102,7 @@
           <option value="mfh">Mehrfamilienhaus</option>
         </select>
       </div>
+
       <div class="col4">
         <label>Baujahr (Klasse)</label>
         <select id="baujahr">
@@ -111,9 +112,11 @@
           <option value="ab_2010">ab 2010</option>
         </select>
       </div>
+
       <div class="col4">
         <label>Wohnfläche (m²)</label>
         <input id="wf" inputmode="decimal" placeholder="z.B. 140" value="140">
+        <div class="small">Pflichtfeld.</div>
       </div>
 
       <div class="col6">
@@ -125,16 +128,26 @@
           <option value="electric">Strom (direkt)</option>
         </select>
       </div>
+
       <div class="col6">
         <label>Optional: Jahresverbrauch (kWh/Jahr)</label>
         <input id="kwh" inputmode="decimal" placeholder="z.B. 22.000 oder 22000">
+        <div class="small" id="kwhHint"></div>
+      </div>
+
+      <!-- Plausibilitätswarnung (nicht blockierend) -->
+      <div class="col12 hidden" id="kwhWarnWrap">
+        <div class="box warn">
+          <div class="muted" style="margin-bottom:6px">Hinweis zur Plausibilität</div>
+          <div class="small" id="kwhWarnText"></div>
+        </div>
       </div>
 
       <div class="col12">
         <div class="box warn">
           <div class="small">
-            Hinweis: Wenn du deinen realen Verbrauch einträgst, wird die Einspar-Indikation deutlich passender.
-            Ohne Verbrauch nutzt der Rechner typische Richtwerte nach Baujahrklasse.
+            Hinweis: Ohne Verbrauch nutzt der Rechner typische Richtwerte nach Baujahrklasse.
+            Für belastbare Ergebnisse sind Vor-Ort-Daten erforderlich.
           </div>
         </div>
       </div>
@@ -180,7 +193,7 @@
     </div>
     <div class="box ok" style="margin-top:12px">
       <div class="small">
-        Der Button unten heißt in diesem Schritt <b>„Ergebnis anzeigen“</b> und startet die Berechnung.
+        In diesem Schritt startet der Button unten <b>„Ergebnis anzeigen“</b> die Berechnung.
       </div>
     </div>
   </div>
@@ -257,9 +270,7 @@
    KONFIG
 ========================= */
 const baselineKwhPerM2 = { bis_1978:190, 1979_1994:140, 1995_2009:100, ab_2010:70 };
-
 const defaultPrices = { gas:0.12, oil:0.12, district:0.14, electric:0.30 };
-
 const co2Factors = { gas:0.20088, oil:0.2664, district:0.18, electric:0.363 };
 
 const measuresConfig = [
@@ -354,6 +365,68 @@ function costForMeasure(m, areas, wf, upliftPct){
 }
 
 /* =========================
+   UX: Verbrauch-Hinweis + Plausi-Warnung
+========================= */
+function updateKwhHintAndWarning(){
+  const wf = parseLocaleNumber(document.getElementById("wf").value);
+  const baujahr = document.getElementById("baujahr").value;
+  const userKwh = parseLocaleNumber(document.getElementById("kwh").value);
+
+  const baseline = baselineKwhPerM2[baujahr] ?? 0;
+  const assumed = (Number.isFinite(wf) && wf > 0 && baseline > 0) ? wf * baseline : 0;
+
+  // Info-Zeile (immer)
+  const hint = (assumed > 0)
+    ? `Wenn leer, wird ein typischer Wert nach Baujahr angesetzt: ca. ${fmtIntSafe(assumed)} kWh/Jahr (≈ ${baseline} kWh/m²a).`
+    : `Wenn leer, wird ein typischer Wert nach Baujahr angesetzt.`;
+
+  document.getElementById("kwhHint").textContent = hint;
+
+  // Plausibilitätswarnung (nur wenn Nutzerverbrauch da ist und Wohnfläche sinnvoll)
+  const wrap = document.getElementById("kwhWarnWrap");
+  const text = document.getElementById("kwhWarnText");
+
+  if(userKwh > 0 && Number.isFinite(wf) && wf >= 20){
+    const kwhPerM2 = userKwh / wf;
+
+    // Grobe Plausibilitätsbereiche (nicht blockierend)
+    const low = 40;
+    const high = 350;
+
+    // Zusätzlich: Abweichung vom Richtwert als Soft-Hinweis
+    const ratio = (baseline > 0) ? (kwhPerM2 / baseline) : 1;
+
+    if(kwhPerM2 < low){
+      wrap.classList.remove("hidden");
+      text.innerHTML = `Der eingegebene Verbrauch entspricht ca. <b>${fmtIntSafe(kwhPerM2)} kWh/m²a</b> – das wirkt sehr niedrig.
+        Prüfe bitte, ob es sich um Heizenergie (nicht Gesamtstrom), einen Teilzeitraum oder einen Tippfehler handelt.`;
+    } else if(kwhPerM2 > high){
+      wrap.classList.remove("hidden");
+      text.innerHTML = `Der eingegebene Verbrauch entspricht ca. <b>${fmtIntSafe(kwhPerM2)} kWh/m²a</b> – das wirkt sehr hoch.
+        Das kann z. B. an Bauzustand, Nutzungsverhalten oder falscher Einheit liegen.`;
+    } else if(baseline > 0 && (ratio < 0.5 || ratio > 1.8)){
+      wrap.classList.remove("hidden");
+      text.innerHTML = `Der eingegebene Verbrauch entspricht ca. <b>${fmtIntSafe(kwhPerM2)} kWh/m²a</b>.
+        Das weicht deutlich vom typischen Richtwert der Baujahrklasse (≈ ${baseline} kWh/m²a) ab – kann völlig plausibel sein, ist aber ein Prüfhinweis.`;
+    } else {
+      wrap.classList.add("hidden");
+      text.textContent = "";
+    }
+  } else {
+    wrap.classList.add("hidden");
+    text.textContent = "";
+  }
+}
+
+function updatePriceHint(){
+  const fuel = document.getElementById("fuel").value;
+  const v = defaultPrices[fuel];
+  const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[fuel] || fuel;
+  document.getElementById("priceHint").textContent =
+    Number.isFinite(v) ? `Standardwert für ${fuelLabel}: ${v.toFixed(2)} €/kWh (wird genutzt, wenn Feld leer ist).` : "";
+}
+
+/* =========================
    UI
 ========================= */
 const steps = ["step1","step2","step3","step4"];
@@ -374,19 +447,6 @@ for(const m of measuresConfig){
   measuresEl.appendChild(el);
 }
 
-function updatePriceHint(){
-  const fuel = document.getElementById("fuel").value;
-  const v = defaultPrices[fuel];
-  const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[fuel] || fuel;
-  document.getElementById("priceHint").textContent =
-    Number.isFinite(v) ? `Standardwert für ${fuelLabel}: ${v.toFixed(2)} €/kWh (wird genutzt, wenn Feld leer ist).` : "";
-}
-
-document.getElementById("fuel").addEventListener("change", ()=>{
-  updatePriceHint();
-  if(stepIndex === 2) refreshSummary();
-});
-
 function showStep(i){
   stepIndex = i;
 
@@ -396,9 +456,9 @@ function showStep(i){
 
   backBtn.disabled = stepIndex === 0;
 
-  // Button-Logik nach Wunsch:
+  // Button-Logik:
   // - Schritt 1/2: "Weiter"
-  // - Schritt 3: "Ergebnis anzeigen" (führt Berechnung aus)
+  // - Schritt 3: "Ergebnis anzeigen" (berechnet)
   // - Schritt 4: kein Next-Button
   if(stepIndex === 2){
     nextBtn.textContent = "Ergebnis anzeigen";
@@ -415,6 +475,8 @@ function showStep(i){
   const subs = ["Gebäude & Basisdaten","Maßnahmen auswählen","Zusammenfassung","Ergebnis"];
   stepSub.textContent = subs[stepIndex] || "";
 
+  // Step-specific updates
+  if(stepIndex === 0) updateKwhHintAndWarning();
   if(stepIndex === 1) updatePriceHint();
   if(stepIndex === 2) refreshSummary();
 }
@@ -436,9 +498,13 @@ function getState(){
 
 function validateStep(idx){
   const s = getState();
+
+  // Wohnfläche Pflicht
   if(idx === 0){
     if(!Number.isFinite(s.wf) || s.wf < 20) return "Bitte eine sinnvolle Wohnfläche eingeben (mind. 20 m²).";
+    // Verbrauch ist optional -> keine Prüfung/Blockade
   }
+
   if(idx === 1){
     if(!s.checked.length) return "Bitte mindestens eine Maßnahme auswählen.";
   }
@@ -448,20 +514,31 @@ function validateStep(idx){
 backBtn.addEventListener("click", ()=> showStep(Math.max(0, stepIndex-1)));
 
 nextBtn.addEventListener("click", ()=>{
-  // Validierung aktueller Schritt
   const err = validateStep(stepIndex);
   if(err){ alert(err); return; }
 
-  // Wenn wir in Schritt 3 sind, soll "Ergebnis anzeigen" berechnen (statt weiterzugehen)
   if(stepIndex === 2){
     calculateAndShowResult();
     return;
   }
 
-  // Normal weiter
   showStep(Math.min(steps.length-1, stepIndex+1));
 });
 
+// Live-Updates für Verbrauch-Hinweis + Plausi
+document.getElementById("wf").addEventListener("input", updateKwhHintAndWarning);
+document.getElementById("baujahr").addEventListener("change", updateKwhHintAndWarning);
+document.getElementById("kwh").addEventListener("input", updateKwhHintAndWarning);
+
+// fuel beeinflusst priceHint und ggf. Summary
+document.getElementById("fuel").addEventListener("change", ()=>{
+  updatePriceHint();
+  if(stepIndex === 2) refreshSummary();
+});
+
+/* =========================
+   SUMMARY
+========================= */
 function refreshSummary(){
   const s = getState();
   const buildingLabel = ({efh:"Einfamilienhaus",rh:"Reihenhaus",mfh:"Mehrfamilienhaus"})[s.buildingType] || s.buildingType;
@@ -472,7 +549,9 @@ function refreshSummary(){
 
   const baseline = baselineKwhPerM2[s.baujahr] ?? 0;
   const baseKwh = (s.userKwh > 0) ? s.userKwh : (s.wf * baseline);
+  const baseNote = (s.userKwh > 0) ? "(Nutzereingabe)" : "(Richtwert)";
   const price = (s.userPrice > 0) ? s.userPrice : (defaultPrices[s.fuel] ?? 0);
+  const priceNote = (s.userPrice > 0) ? "(Nutzereingabe)" : "(Standard)";
 
   document.getElementById("summary").innerHTML = `
     <div class="small">
@@ -480,31 +559,30 @@ function refreshSummary(){
       <b>Baujahr:</b> ${baujahrLabel}<br>
       <b>Wohnfläche:</b> ${fmtIntSafe(s.wf)} m²<br>
       <b>Energieträger:</b> ${fuelLabel}<br>
-      <b>Verbrauchsbasis:</b> ${fmtIntSafe(baseKwh)} kWh/Jahr ${s.userKwh>0 ? "(Nutzereingabe)" : "(Richtwert)"}<br>
-      <b>Energiepreis:</b> ${price>0 ? price.toFixed(2) : "—"} €/kWh ${s.userPrice>0 ? "(Nutzereingabe)" : "(Standard)"}<br>
+      <b>Verbrauchsbasis:</b> ${fmtIntSafe(baseKwh)} kWh/Jahr ${baseNote}<br>
+      <b>Energiepreis:</b> ${price>0 ? price.toFixed(2) : "—"} €/kWh ${priceNote}<br>
       <b>Preisniveau/Puffer:</b> +${fmtIntSafe(s.upliftPct)}%<br><br>
       <b>Maßnahmen:</b><br>• ${selected.join("<br>• ")}
     </div>
   `;
 }
 
+/* =========================
+   CALC
+========================= */
 function calculateAndShowResult(){
-  // Zusätzliche Validierung (falls Nutzer zurück/weiter springt)
+  const s = getState();
   const err = validateStep(0) || validateStep(1);
   if(err){ alert(err); return; }
 
-  const s = getState();
-
+  // Verbrauch: optional – wenn nicht vorhanden, aus Wohnfläche×Richtwert
   const baseline = baselineKwhPerM2[s.baujahr] ?? 0;
   const baseKwh = (s.userKwh > 0) ? s.userKwh : (s.wf * baseline);
 
+  // Preis: optional – Default je Energieträger
   let price = (s.userPrice > 0) ? s.userPrice : (defaultPrices[s.fuel] ?? 0);
   if(!(price > 0) || !Number.isFinite(price)){
     alert("Bitte Energiepreis eingeben (oder Energieträger prüfen).");
-    return;
-  }
-  if(!(baseKwh > 0) || !Number.isFinite(baseKwh)){
-    alert("Bitte Wohnfläche/Verbrauch prüfen.");
     return;
   }
 
@@ -543,8 +621,10 @@ function calculateAndShowResult(){
   }
 
   const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[s.fuel] || s.fuel;
+  const baseNote = (s.userKwh > 0) ? "Nutzereingabe" : "Richtwert nach Baujahr";
+
   document.getElementById("assumptions").innerHTML = `
-    <b>Indikations-Logik:</b> Verbrauchsbasis ${fmtIntSafe(baseKwh)} kWh/Jahr (${s.userKwh>0 ? "Nutzereingabe" : "Richtwert"}),
+    <b>Indikations-Logik:</b> Verbrauchsbasis ${fmtIntSafe(baseKwh)} kWh/Jahr (${baseNote}),
     kombinierte Einsparung konservativ, Energiepreis ${price.toFixed(2)} €/kWh (${fuelLabel}).
     <br><br>
     <b>Hinweis:</b> Ohne Vor-Ort-Daten (Bauteilaufbau/U-Werte, Wärmebrücken, Luftdichtheit, Lüftung, Anlagenauslegung) sind die Werte Richtwerte.
@@ -559,13 +639,16 @@ document.getElementById("restartBtn").addEventListener("click", ()=>{
   document.getElementById("kwh").value = "";
   document.getElementById("price").value = "";
   document.getElementById("uplift").value = "0";
+  updateKwhHintAndWarning();
   showStep(0);
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
 // init
+updateKwhHintAndWarning();
 updatePriceHint();
 showStep(0);
 </script>
+
 </body>
 </html>
