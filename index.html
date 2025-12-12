@@ -103,6 +103,7 @@
       <div class="col4">
         <label>Baujahr (Klasse)</label>
         <select id="baujahr">
+          <!-- WICHTIG: value sind KEYS, nicht sichtbarer Text -->
           <option value="bis_1978">bis 1978</option>
           <option value="1979_1994">1979–1994</option>
           <option value="1995_2009">1995–2009</option>
@@ -295,6 +296,22 @@ function normalizeBaujahrKey(raw){
   return map[s] || s;
 }
 
+// Baseline-Funktion: Normalisierung + Fallback (gegen Key-Mismatch)
+function getBaselineKwhPerM2(baujahrValue){
+  const raw = String(baujahrValue || "").trim();
+  const key = normalizeBaujahrKey(raw);
+  const b = baselineKwhPerM2[key];
+  if(Number.isFinite(b) && b > 0) return b;
+
+  // Fallbacks: falls value z.B. "1979–1994" statt "1979_1994" o.ä.
+  if(/1979/.test(raw)) return 140;
+  if(/1995/.test(raw)) return 100;
+  if(/1978|bis/i.test(raw)) return 190;
+  if(/2010|ab/i.test(raw)) return 70;
+
+  return 0;
+}
+
 // akzeptiert "0,12", "0.12", "1.234,56", "1,234.56"
 function parseLocaleNumber(v){
   if(v === null || v === undefined) return 0;
@@ -421,6 +438,7 @@ function showStep(i){
 
 function getState(){
   const buildingType = document.getElementById("buildingType").value;
+
   const baujahrRaw = document.getElementById("baujahr").value;
   const baujahr = normalizeBaujahrKey(baujahrRaw);
 
@@ -433,14 +451,13 @@ function getState(){
   const checked = [...document.querySelectorAll('input[type="checkbox"][data-mid]:checked')]
     .map(x => x.getAttribute("data-mid"));
 
-  return { buildingType, baujahr, wf, fuel, userKwh, userPrice, upliftPct, checked };
+  return { buildingType, baujahrRaw, baujahr, wf, fuel, userKwh, userPrice, upliftPct, checked };
 }
 
 function validateStep(idx){
   const s = getState();
   if(idx === 0){
     if(!Number.isFinite(s.wf) || s.wf < 20) return "Bitte eine sinnvolle Wohnfläche eingeben (mind. 20 m²).";
-    // Verbrauch bleibt optional
   }
   if(idx === 1){
     if(!s.checked.length) return "Bitte mindestens eine Maßnahme auswählen.";
@@ -467,7 +484,7 @@ nextBtn.addEventListener("click", ()=>{
 ========================= */
 function updateKwhHintAndWarning(){
   const s = getState();
-  const baseline = baselineKwhPerM2[s.baujahr] ?? 0;
+  const baseline = getBaselineKwhPerM2(s.baujahrRaw);
   const assumed = (s.wf > 0 && baseline > 0) ? s.wf * baseline : 0;
 
   const hint = (assumed > 0)
@@ -531,7 +548,7 @@ function refreshSummary(){
 
   const selected = measuresConfig.filter(m => s.checked.includes(m.id)).map(m => m.label);
 
-  const baseline = baselineKwhPerM2[s.baujahr] ?? 0;
+  const baseline = getBaselineKwhPerM2(s.baujahrRaw);
   const baseKwh = (s.userKwh > 0) ? s.userKwh : (s.wf * baseline);
   const baseNote = (s.userKwh > 0) ? "(Nutzereingabe)" : "(Richtwert)";
 
@@ -558,7 +575,12 @@ function refreshSummary(){
 function calculateAndShowResult(){
   const s = getState();
 
-  const baseline = baselineKwhPerM2[s.baujahr] ?? 0;
+  const baseline = getBaselineKwhPerM2(s.baujahrRaw);
+  if(!(baseline > 0)){
+    alert("Baujahrklasse konnte keinem Richtwert zugeordnet werden. Bitte Auswahl prüfen.");
+    return;
+  }
+
   const baseKwh = (s.userKwh > 0) ? s.userKwh : (s.wf * baseline);
 
   let price = (s.userPrice > 0) ? s.userPrice : (defaultPrices[s.fuel] ?? 0);
