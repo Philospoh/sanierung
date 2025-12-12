@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sanierungsrechner – Schnell-Indikation</title>
+  <title>Sanierungsrechner V2 – Schnell-Indikation</title>
   <style>
     :root{
       --bg:#fafafa; --card:#fff; --txt:#111; --mut:#60646c;
@@ -13,7 +13,7 @@
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
-    .wrap{max-width:980px;margin:24px auto 64px;padding:0 16px}
+    .wrap{max-width:1050px;margin:24px auto 72px;padding:0 16px}
     .card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin:12px 0}
     h1{font-size:22px;margin:6px 0 8px}
     h2{font-size:16px;margin:0 0 10px}
@@ -24,7 +24,8 @@
     .col8{grid-column:span 8}
     .col6{grid-column:span 6}
     .col4{grid-column:span 4}
-    @media (max-width:860px){ .col8,.col6,.col4{grid-column:span 12} }
+    .col3{grid-column:span 3}
+    @media (max-width:900px){ .col8,.col6,.col4,.col3{grid-column:span 12} }
 
     label{display:block;font-size:13px;color:#2b2f36;margin:0 0 6px}
     input,select{
@@ -52,9 +53,9 @@
     .stepTitle{display:flex;justify-content:space-between;align-items:center;gap:10px}
     .badge{font-size:12px;color:#2b2f36;background:var(--soft);border:1px solid var(--bd);padding:6px 10px;border-radius:999px}
     .kpis{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
-    .kpi{grid-column:span 4;border:1px dashed var(--bd2);border-radius:14px;padding:12px}
+    .kpi{grid-column:span 3;border:1px dashed var(--bd2);border-radius:14px;padding:12px}
     .kpi b{display:block;font-size:18px;margin-top:4px}
-    @media (max-width:860px){ .kpi{grid-column:span 12} }
+    @media (max-width:900px){ .kpi{grid-column:span 12} }
     .box{border:1px solid var(--bd);border-radius:14px;padding:12px}
     .box.ok{background:var(--ok);border-color:#bff0d0}
     .box.warn{background:var(--warn);border-color:#ffe0a3}
@@ -65,6 +66,8 @@
     .cta{display:flex;flex-direction:column;gap:8px}
     .cta a{display:inline-block;text-decoration:none}
     .hidden{display:none !important}
+    .hr{height:1px;background:var(--bd);margin:12px 0}
+    code.inline{background:var(--soft);border:1px solid var(--bd);padding:2px 6px;border-radius:8px}
   </style>
 </head>
 
@@ -72,8 +75,10 @@
 <div class="wrap">
 
   <div class="card">
-    <h1>Sanierungsrechner (Schnell-Indikation)</h1>
-    <p class="muted">Grobe Kostenspanne & Einspar-Indikation – ohne Förderzusage, ohne Detailplanung.</p>
+    <h1>Sanierungsrechner (V2 – Schnell-Indikation)</h1>
+    <p class="muted">
+      Grobe Kostenspanne, Einsparband und einfache Amortisation – als erste Orientierung. Alle Berechnungen laufen lokal im Browser.
+    </p>
   </div>
 
   <div class="card">
@@ -82,7 +87,7 @@
         <h2 id="stepHeading">Schritt 1 von 4</h2>
         <div class="muted" id="stepSub">Gebäude & Basisdaten</div>
       </div>
-      <div class="badge">V1 Website</div>
+      <div class="badge">V2 • URL-Share • Bandbreiten</div>
     </div>
     <div class="progress"><div class="bar" id="bar"></div></div>
   </div>
@@ -91,7 +96,7 @@
   <div class="card" id="step1">
     <h2>Gebäude & Basisdaten</h2>
     <div class="grid">
-      <div class="col4">
+      <div class="col3">
         <label>Gebäudetyp</label>
         <select id="buildingType">
           <option value="efh">Einfamilienhaus</option>
@@ -100,10 +105,9 @@
         </select>
       </div>
 
-      <div class="col4">
+      <div class="col3">
         <label>Baujahr (Klasse)</label>
         <select id="baujahr">
-          <!-- WICHTIG: value sind KEYS, nicht sichtbarer Text -->
           <option value="bis_1978">bis 1978</option>
           <option value="1979_1994">1979–1994</option>
           <option value="1995_2009">1995–2009</option>
@@ -111,10 +115,20 @@
         </select>
       </div>
 
-      <div class="col4">
+      <div class="col3">
         <label>Wohnfläche (m²)</label>
         <input id="wf" inputmode="decimal" placeholder="z.B. 140" value="140">
         <div class="small">Pflichtfeld.</div>
+      </div>
+
+      <div class="col3">
+        <label>Sanierungsniveau</label>
+        <select id="level">
+          <option value="basic">Basis (konservativ)</option>
+          <option value="standard" selected>Standard</option>
+          <option value="ambitious">Ambitioniert</option>
+        </select>
+        <div class="small">Wirkt auf Einsparung & Kostenband.</div>
       </div>
 
       <div class="col6">
@@ -143,7 +157,7 @@
       <div class="col12">
         <div class="box warn">
           <div class="small">
-            Wenn kein Verbrauch angegeben ist, wird ein typischer Wert nach Baujahr angesetzt.
+            Wenn kein Verbrauch angegeben ist, wird ein typischer Wert nach Baujahr angesetzt. V2 zeigt zusätzlich eine Einspar-Bandbreite.
           </div>
         </div>
       </div>
@@ -153,7 +167,7 @@
   <!-- STEP 2 -->
   <div class="card hidden" id="step2">
     <h2>Maßnahmen auswählen</h2>
-    <div class="muted" style="margin-bottom:10px">Wähle die Maßnahmen. Ergebnis = Kosten-Spannen + Indikation.</div>
+    <div class="muted" style="margin-bottom:10px">Wähle die Maßnahmen. Ergebnis = Kostenband + Einsparband + Amortisation (indikativ).</div>
     <div class="row" id="measures"></div>
 
     <div class="box" style="margin-top:12px">
@@ -194,14 +208,19 @@
 
     <div class="kpis">
       <div class="kpi">
-        <span class="muted">Investition gesamt</span>
-        <b id="invTotal">—</b>
+        <span class="muted">Investition typisch</span>
+        <b id="invTyp">—</b>
         <span class="small" id="invRange">—</span>
       </div>
       <div class="kpi">
-        <span class="muted">Jährliche Einsparung</span>
-        <b id="savEur">—</b>
-        <span class="small" id="savKwh">—</span>
+        <span class="muted">Einsparung typisch</span>
+        <b id="savTyp">—</b>
+        <span class="small" id="savRange">—</span>
+      </div>
+      <div class="kpi">
+        <span class="muted">Amortisation</span>
+        <b id="payback">—</b>
+        <span class="small">Jahre (einfach)</span>
       </div>
       <div class="kpi">
         <span class="muted">CO₂-Minderung</span>
@@ -228,8 +247,16 @@
     <div class="grid" style="margin-top:12px">
       <div class="col8">
         <div class="box warn">
-          <div class="muted" style="margin-bottom:6px">Wichtig</div>
+          <div class="muted" style="margin-bottom:6px">Annahmen & Hinweis</div>
           <div class="small" id="assumptions"></div>
+          <div class="hr"></div>
+          <div class="row">
+            <button class="btn secondary" id="copyLinkBtn">Ergebnis-Link kopieren</button>
+            <span class="small" id="copyStatus"></span>
+          </div>
+          <div class="small" style="margin-top:8px">
+            Tipp: Link teilen oder als Bookmark für das Kundengespräch nutzen.
+          </div>
         </div>
       </div>
       <div class="col4">
@@ -269,6 +296,13 @@ const baselineKwhPerM2 = {
 const defaultPrices = { gas:0.12, oil:0.12, district:0.14, electric:0.30 };
 const co2Factors = { gas:0.20088, oil:0.2664, district:0.18, electric:0.363 };
 
+// V2: Sanierungsniveau wirkt auf Einspar- & Kostenband (Multiplikatoren)
+const levelMultipliers = {
+  basic:     { save: 0.85, cost: 0.90 },   // konservativer: weniger Einsparung, etwas geringere Kosten
+  standard:  { save: 1.00, cost: 1.00 },
+  ambitious: { save: 1.15, cost: 1.15 }    // ambitioniert: etwas mehr Einsparung, höheres Kostenniveau
+};
+
 const measuresConfig = [
   { id:"heat", label:"Heizung optimieren / tauschen", savePctTyp:0.25, costModel:"flat",
     cost:{min:14000, typ:22000, max:32000} },
@@ -296,14 +330,12 @@ function normalizeBaujahrKey(raw){
   return map[s] || s;
 }
 
-// Baseline-Funktion: Normalisierung + Fallback (gegen Key-Mismatch)
 function getBaselineKwhPerM2(baujahrValue){
   const raw = String(baujahrValue || "").trim();
   const key = normalizeBaujahrKey(raw);
   const b = baselineKwhPerM2[key];
   if(Number.isFinite(b) && b > 0) return b;
 
-  // Fallbacks: falls value z.B. "1979–1994" statt "1979_1994" o.ä.
   if(/1979/.test(raw)) return 140;
   if(/1995/.test(raw)) return 100;
   if(/1978|bis/i.test(raw)) return 190;
@@ -347,6 +379,10 @@ function fmtIntSafe(x){
   if(!Number.isFinite(x)) return "—";
   return new Intl.NumberFormat('de-DE',{maximumFractionDigits:0}).format(x);
 }
+function fmtYearsSafe(x){
+  if(!Number.isFinite(x) || x <= 0) return "—";
+  return `${Math.round(x)} Jahre`;
+}
 const pct0 = x => Number.isFinite(x) ? `${Math.round(x*100)}%` : "—";
 
 /* =========================
@@ -356,41 +392,56 @@ function estAreas(wf, buildingType){
   const floors = buildingType === "mfh" ? 3 : 2;
   const footprint = wf / floors;
   const facadeFactor = buildingType === "rh" ? 0.70 : (buildingType === "mfh" ? 0.85 : 1.00);
+
   const roofArea = footprint * 1.10;
   const floorArea = footprint;
+
   const side = Math.sqrt(footprint);
   const perimeter = 4 * side;
   const height = 2.6 * floors;
   const facadeArea = perimeter * height * 0.95 * facadeFactor;
+
   return { roofArea, floorArea, facadeArea };
 }
 
-function combinedSavingPct(selected){
+// V2: Kombinierte Einsparung (multiplikativ) + konservativer Abschlag.
+// Bandbreite: min/typ/max über +/- 20% um typ herum.
+function combinedSavingPct(selected, levelKey){
+  const mul = levelMultipliers[levelKey]?.save ?? 1.0;
+
   let remaining = 1.0;
-  for(const m of selected) remaining *= (1 - m.savePctTyp);
-  return (1 - remaining) * 0.90;
+  for(const m of selected) remaining *= (1 - (m.savePctTyp * mul));
+  const raw = 1 - remaining;
+
+  const typ = raw * 0.90;          // konservativ
+  const min = typ * 0.80;
+  const max = Math.min(typ * 1.20, 0.80); // deckeln, damit kein Quatsch entsteht
+  return { min, typ, max };
 }
 
 function applyUplift(value, upliftPct){
   return value * (1 + upliftPct/100);
 }
 
-function costForMeasure(m, areas, wf, upliftPct){
+// V2: Level wirkt auch auf Kostenband
+function costForMeasure(m, areas, wf, upliftPct, levelKey){
+  const levelCostMul = levelMultipliers[levelKey]?.cost ?? 1.0;
+
   let unit = 1;
   if(m.costModel === "m2_facade") unit = areas.facadeArea;
   if(m.costModel === "m2_roof") unit = areas.roofArea;
   if(m.costModel === "m2_floor") unit = areas.floorArea;
   if(m.costModel === "per_m2_living") unit = wf;
 
-  return {
-    min: applyUplift(m.cost.min * unit, upliftPct),
-    typ: applyUplift(m.cost.typ * unit, upliftPct),
-    max: applyUplift(m.cost.max * unit, upliftPct)
-  };
+  const min = applyUplift(m.cost.min * unit * levelCostMul, upliftPct);
+  const typ = applyUplift(m.cost.typ * unit * levelCostMul, upliftPct);
+  const max = applyUplift(m.cost.max * unit * levelCostMul, upliftPct);
+
+  return { min, typ, max };
 }
 
 /* =========================
-   STATE + UI
+   UI / STATE
 ========================= */
 const steps = ["step1","step2","step3","step4"];
 let stepIndex = 0;
@@ -438,9 +489,8 @@ function showStep(i){
 
 function getState(){
   const buildingType = document.getElementById("buildingType").value;
-
   const baujahrRaw = document.getElementById("baujahr").value;
-  const baujahr = normalizeBaujahrKey(baujahrRaw);
+  const level = document.getElementById("level").value;
 
   const wf = parseLocaleNumber(document.getElementById("wf").value);
   const fuel = document.getElementById("fuel").value;
@@ -451,13 +501,15 @@ function getState(){
   const checked = [...document.querySelectorAll('input[type="checkbox"][data-mid]:checked')]
     .map(x => x.getAttribute("data-mid"));
 
-  return { buildingType, baujahrRaw, baujahr, wf, fuel, userKwh, userPrice, upliftPct, checked };
+  return { buildingType, baujahrRaw, level, wf, fuel, userKwh, userPrice, upliftPct, checked };
 }
 
 function validateStep(idx){
   const s = getState();
   if(idx === 0){
     if(!Number.isFinite(s.wf) || s.wf < 20) return "Bitte eine sinnvolle Wohnfläche eingeben (mind. 20 m²).";
+    const baseline = getBaselineKwhPerM2(s.baujahrRaw);
+    if(!(baseline > 0)) return "Baujahrklasse konnte keinem Richtwert zugeordnet werden. Bitte Auswahl prüfen.";
   }
   if(idx === 1){
     if(!s.checked.length) return "Bitte mindestens eine Maßnahme auswählen.";
@@ -475,23 +527,21 @@ nextBtn.addEventListener("click", ()=>{
     calculateAndShowResult();
     return;
   }
-
   showStep(Math.min(steps.length-1, stepIndex+1));
 });
 
 /* =========================
-   HINTS (Verbrauch + Preis)
+   HINTS
 ========================= */
 function updateKwhHintAndWarning(){
   const s = getState();
   const baseline = getBaselineKwhPerM2(s.baujahrRaw);
   const assumed = (s.wf > 0 && baseline > 0) ? s.wf * baseline : 0;
 
-  const hint = (assumed > 0)
-    ? `Wenn leer: typischer Ansatz nach Baujahr ca. ${fmtIntSafe(assumed)} kWh/Jahr (≈ ${baseline} kWh/m²a).`
-    : `Wenn leer: typischer Ansatz nach Baujahr.`;
-
-  document.getElementById("kwhHint").textContent = hint;
+  document.getElementById("kwhHint").textContent =
+    (assumed > 0)
+      ? `Wenn leer: typischer Ansatz nach Baujahr ca. ${fmtIntSafe(assumed)} kWh/Jahr (≈ ${baseline} kWh/m²a).`
+      : `Wenn leer: typischer Ansatz nach Baujahr.`;
 
   const wrap = document.getElementById("kwhWarnWrap");
   const text = document.getElementById("kwhWarnText");
@@ -535,16 +585,70 @@ document.getElementById("fuel").addEventListener("change", ()=>{
   updatePriceHint();
   if(stepIndex === 2) refreshSummary();
 });
+document.getElementById("level").addEventListener("change", ()=>{
+  if(stepIndex === 2) refreshSummary();
+});
+
+/* =========================
+   URL PARAMS (V2 Share)
+========================= */
+function setUrlFromState(){
+  const s = getState();
+  const params = new URLSearchParams();
+  params.set("bt", s.buildingType);
+  params.set("by", s.baujahrRaw);
+  params.set("wf", String(s.wf || ""));
+  params.set("lv", s.level);
+  params.set("fu", s.fuel);
+  if(s.userKwh) params.set("kwh", String(s.userKwh));
+  if(s.userPrice) params.set("pr", String(s.userPrice));
+  if(s.upliftPct) params.set("up", String(s.upliftPct));
+  if(s.checked?.length) params.set("m", s.checked.join(","));
+  const newUrl = `${location.pathname}?${params.toString()}${location.hash || ""}`;
+  history.replaceState({}, "", newUrl);
+}
+
+function loadStateFromUrl(){
+  const p = new URLSearchParams(location.search);
+  const bt = p.get("bt");
+  const by = p.get("by");
+  const wf = p.get("wf");
+  const lv = p.get("lv");
+  const fu = p.get("fu");
+  const kwh = p.get("kwh");
+  const pr = p.get("pr");
+  const up = p.get("up");
+  const m = p.get("m");
+
+  if(bt) document.getElementById("buildingType").value = bt;
+  if(by) document.getElementById("baujahr").value = by;
+  if(wf) document.getElementById("wf").value = wf;
+  if(lv) document.getElementById("level").value = lv;
+  if(fu) document.getElementById("fuel").value = fu;
+  if(kwh) document.getElementById("kwh").value = kwh;
+  if(pr) document.getElementById("price").value = pr;
+  if(up) document.getElementById("uplift").value = up;
+
+  if(m){
+    const set = new Set(m.split(",").map(x=>x.trim()).filter(Boolean));
+    document.querySelectorAll('input[type="checkbox"][data-mid]').forEach(cb=>{
+      cb.checked = set.has(cb.getAttribute("data-mid"));
+    });
+  }
+}
 
 /* =========================
    SUMMARY
 ========================= */
 function refreshSummary(){
   const s = getState();
-
   const buildingLabel = ({efh:"Einfamilienhaus",rh:"Reihenhaus",mfh:"Mehrfamilienhaus"})[s.buildingType] || s.buildingType;
-  const baujahrLabel = ({bis_1978:"bis 1978","1979_1994":"1979–1994","1995_2009":"1995–2009",ab_2010:"ab 2010"})[s.baujahr] || s.baujahr;
+  const baujahrLabel = ({
+    bis_1978:"bis 1978","1979_1994":"1979–1994","1995_2009":"1995–2009",ab_2010:"ab 2010"
+  })[normalizeBaujahrKey(s.baujahrRaw)] || s.baujahrRaw;
+
   const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[s.fuel] || s.fuel;
+  const levelLabel = ({basic:"Basis",standard:"Standard",ambitious:"Ambitioniert"})[s.level] || s.level;
 
   const selected = measuresConfig.filter(m => s.checked.includes(m.id)).map(m => m.label);
 
@@ -560,6 +664,7 @@ function refreshSummary(){
       <b>Gebäudetyp:</b> ${buildingLabel}<br>
       <b>Baujahr:</b> ${baujahrLabel}<br>
       <b>Wohnfläche:</b> ${fmtIntSafe(s.wf)} m²<br>
+      <b>Sanierungsniveau:</b> ${levelLabel}<br>
       <b>Energieträger:</b> ${fuelLabel}<br>
       <b>Verbrauchsbasis:</b> ${fmtIntSafe(baseKwh)} kWh/Jahr ${baseNote}<br>
       <b>Energiepreis:</b> ${price>0 ? price.toFixed(2) : "—"} €/kWh ${priceNote}<br>
@@ -567,6 +672,9 @@ function refreshSummary(){
       <b>Maßnahmen:</b><br>• ${selected.join("<br>• ")}
     </div>
   `;
+
+  // URL aktualisieren, sobald Summary sichtbar ist (guter Zeitpunkt)
+  setUrlFromState();
 }
 
 /* =========================
@@ -592,23 +700,36 @@ function calculateAndShowResult(){
   const selected = measuresConfig.filter(m => s.checked.includes(m.id));
   const areas = estAreas(s.wf, s.buildingType);
 
-  const costs = selected.map(m => ({ m, c: costForMeasure(m, areas, s.wf, s.upliftPct) }));
+  const costs = selected.map(m => ({ m, c: costForMeasure(m, areas, s.wf, s.upliftPct, s.level) }));
   const invMin = costs.reduce((a,x)=>a+(Number.isFinite(x.c.min)?x.c.min:0),0);
   const invTyp = costs.reduce((a,x)=>a+(Number.isFinite(x.c.typ)?x.c.typ:0),0);
   const invMax = costs.reduce((a,x)=>a+(Number.isFinite(x.c.max)?x.c.max:0),0);
 
-  const savePct = combinedSavingPct(selected);
-  const savedKwh = baseKwh * savePct;
-  const savedEur = savedKwh * price;
-  const savedCo2 = savedKwh * (co2Factors[s.fuel] ?? 0);
+  const savePctBand = combinedSavingPct(selected, s.level);
+  const savedKwhMin = baseKwh * savePctBand.min;
+  const savedKwhTyp = baseKwh * savePctBand.typ;
+  const savedKwhMax = baseKwh * savePctBand.max;
 
-  document.getElementById("invTotal").textContent = fmtEUR0Safe(invTyp);
+  const savedEurMin = savedKwhMin * price;
+  const savedEurTyp = savedKwhTyp * price;
+  const savedEurMax = savedKwhMax * price;
+
+  const savedCo2Typ = savedKwhTyp * (co2Factors[s.fuel] ?? 0);
+
+  // KPIs
+  document.getElementById("invTyp").textContent = fmtEUR0Safe(invTyp);
   document.getElementById("invRange").textContent = `Spanne: ${fmtEUR0Safe(invMin)} bis ${fmtEUR0Safe(invMax)}`;
 
-  document.getElementById("savEur").textContent = fmtEUR0Safe(savedEur);
-  document.getElementById("savKwh").textContent = `${fmtIntSafe(savedKwh)} kWh/Jahr (≈ ${pct0(savePct)})`;
-  document.getElementById("co2").textContent = fmtIntSafe(savedCo2);
+  document.getElementById("savTyp").textContent = fmtEUR0Safe(savedEurTyp);
+  document.getElementById("savRange").textContent =
+    `Band: ${fmtEUR0Safe(savedEurMin)} bis ${fmtEUR0Safe(savedEurMax)} (≈ ${pct0(savePctBand.typ)})`;
 
+  const pb = (savedEurTyp > 0) ? (invTyp / savedEurTyp) : 0;
+  document.getElementById("payback").textContent = fmtYearsSafe(pb);
+
+  document.getElementById("co2").textContent = fmtIntSafe(savedCo2Typ);
+
+  // Tabelle
   const rows = document.getElementById("rows");
   rows.innerHTML = "";
   for(const x of costs){
@@ -624,33 +745,101 @@ function calculateAndShowResult(){
 
   const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[s.fuel] || s.fuel;
   const baseNote = (s.userKwh > 0) ? "Nutzereingabe" : "Richtwert nach Baujahr";
+  const levelLabel = ({basic:"Basis",standard:"Standard",ambitious:"Ambitioniert"})[s.level] || s.level;
 
   document.getElementById("assumptions").innerHTML = `
-    <b>Indikations-Logik:</b> Verbrauchsbasis ${fmtIntSafe(baseKwh)} kWh/Jahr (${baseNote}),
-    kombinierte Einsparung konservativ, Energiepreis ${price.toFixed(2)} €/kWh (${fuelLabel}).
-    <br><br>
-    <b>Hinweis:</b> Ohne Vor-Ort-Daten (Bauteilaufbau/U-Werte, Wärmebrücken, Luftdichtheit, Lüftung, Anlagenauslegung)
-    sind die Werte Richtwerte.
+    <b>Verbrauchsbasis:</b> ${fmtIntSafe(baseKwh)} kWh/Jahr (${baseNote})<br>
+    <b>Sanierungsniveau:</b> ${levelLabel} (wirkt auf Einspar- und Kostenband)<br>
+    <b>Energiepreis:</b> ${price.toFixed(2)} €/kWh (${fuelLabel})<br>
+    <b>Einsparlogik:</b> Kombination der Maßnahmen multiplikativ, konservativer Abschlag; V2 zeigt Bandbreite (±20%)<br><br>
+    <b>Hinweis:</b> Für belastbare Planung sind Vor-Ort-Daten nötig (Bauteilaufbau/U-Werte, Wärmebrücken, Luftdichtheit, Lüftung, Anlagenauslegung).
   `;
+
+  // URL speichern (Share-Link)
+  setUrlFromState();
 
   showStep(3);
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
+/* =========================
+   Share-Link
+========================= */
+document.getElementById("copyLinkBtn").addEventListener("click", async ()=>{
+  try{
+    setUrlFromState();
+    await navigator.clipboard.writeText(location.href);
+    document.getElementById("copyStatus").textContent = "Link kopiert.";
+    setTimeout(()=> document.getElementById("copyStatus").textContent = "", 2000);
+  }catch(e){
+    document.getElementById("copyStatus").textContent = "Kopieren nicht möglich – bitte URL manuell kopieren.";
+    setTimeout(()=> document.getElementById("copyStatus").textContent = "", 3000);
+  }
+});
+
+/* =========================
+   Restart
+========================= */
 document.getElementById("restartBtn").addEventListener("click", ()=>{
   document.querySelectorAll('input[type="checkbox"][data-mid]').forEach(x=> x.checked = false);
   document.getElementById("kwh").value = "";
   document.getElementById("price").value = "";
   document.getElementById("uplift").value = "0";
+  document.getElementById("level").value = "standard";
   updateKwhHintAndWarning();
+  setUrlFromState();
   showStep(0);
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
-// init
-updateKwhHintAndWarning();
-updatePriceHint();
-showStep(0);
+/* =========================
+   Init
+========================= */
+function init(){
+  // Aus URL laden, wenn vorhanden
+  loadStateFromUrl();
+
+  // Hints initialisieren
+  updateKwhHintAndWarning();
+  updatePriceHint();
+
+  showStep(0);
+}
+init();
+</script>
+
+<script>
+/* =========================
+   URL load (nach init-Definition)
+========================= */
+function loadStateFromUrl(){
+  const p = new URLSearchParams(location.search);
+  const bt = p.get("bt");
+  const by = p.get("by");
+  const wf = p.get("wf");
+  const lv = p.get("lv");
+  const fu = p.get("fu");
+  const kwh = p.get("kwh");
+  const pr = p.get("pr");
+  const up = p.get("up");
+  const m = p.get("m");
+
+  if(bt) document.getElementById("buildingType").value = bt;
+  if(by) document.getElementById("baujahr").value = by;
+  if(wf) document.getElementById("wf").value = wf;
+  if(lv) document.getElementById("level").value = lv;
+  if(fu) document.getElementById("fuel").value = fu;
+  if(kwh) document.getElementById("kwh").value = kwh;
+  if(pr) document.getElementById("price").value = pr;
+  if(up) document.getElementById("uplift").value = up;
+
+  if(m){
+    const set = new Set(m.split(",").map(x=>x.trim()).filter(Boolean));
+    document.querySelectorAll('input[type="checkbox"][data-mid]').forEach(cb=>{
+      cb.checked = set.has(cb.getAttribute("data-mid"));
+    });
+  }
+}
 </script>
 
 </body>
