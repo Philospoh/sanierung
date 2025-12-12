@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sanierungsrechner – Schnell-Indikation</title>
+  <style>
+    :root{
+      --bg:#fafafa; --card:#fff; --txt:#111; --mut:#60646c;
+      --bd:#e6e8eb; --bd2:#d9dde3; --accent:#111; --soft:#f4f6f8;
+      --ok:#effff5; --warn:#fff6e5;
+      --r:16px; --shadow:0 1px 2px rgba(0,0,0,.05);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+    .wrap{max-width:980px;margin:24px auto 64px;padding:0 16px}
+    .card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin:12px 0}
+    h1{font-size:22px;margin:6px 0 8px}
+    h2{font-size:16px;margin:0 0 10px}
+    .muted{color:var(--mut);font-size:13px;line-height:1.35}
+    .small{font-size:12px;color:var(--mut);line-height:1.35}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .col12{grid-column:span 12}
+    .col8{grid-column:span 8}
+    .col6{grid-column:span 6}
+    .col4{grid-column:span 4}
+    @media (max-width:860px){ .col8,.col6,.col4{grid-column:span 12} }
+
+    label{display:block;font-size:13px;color:#2b2f36;margin:0 0 6px}
+    input,select{
+      width:100%; padding:10px 11px; border:1px solid var(--bd2);
+      border-radius:12px; font-size:14px; background:#fff;
+    }
+    input::placeholder{color:#9aa3ad}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .pill{
+      display:flex;align-items:flex-start;gap:10px;
+      border:1px solid var(--bd);border-radius:999px;padding:10px 12px;background:#fff;
+    }
+    .pill input{width:auto;margin-top:2px}
+    .btn{
+      appearance:none;border:0;border-radius:12px;padding:10px 12px;
+      font-weight:650;cursor:pointer;background:var(--accent);color:#fff;
+    }
+    .btn.secondary{background:#fff;color:var(--txt);border:1px solid var(--bd2)}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+    .progress{
+      height:10px;border-radius:999px;background:var(--soft);
+      overflow:hidden;border:1px solid var(--bd);
+    }
+    .bar{height:100%;width:0%;background:#111}
+    .stepTitle{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .badge{font-size:12px;color:#2b2f36;background:var(--soft);border:1px solid var(--bd);padding:6px 10px;border-radius:999px}
+    .kpis{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .kpi{grid-column:span 4;border:1px dashed var(--bd2);border-radius:14px;padding:12px}
+    .kpi b{display:block;font-size:18px;margin-top:4px}
+    @media (max-width:860px){ .kpi{grid-column:span 12} }
+    .box{border:1px solid var(--bd);border-radius:14px;padding:12px}
+    .box.ok{background:var(--ok);border-color:#bff0d0}
+    .box.warn{background:var(--warn);border-color:#ffe0a3}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{border-bottom:1px solid var(--bd);padding:10px 8px;text-align:left;font-size:13px}
+    .table th{color:#2b2f36;font-weight:700;background:var(--soft)}
+    .right{text-align:right}
+    .cta{display:flex;flex-direction:column;gap:8px}
+    .cta a{display:inline-block;text-decoration:none}
+    .hidden{display:none !important}
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>Sanierungsrechner (Schnell-Indikation)</h1>
+    <p class="muted">Grobe Kostenspanne & Einspar-Indikation – ohne Förderzusage, ohne Detailplanung.</p>
+  </div>
+
+  <div class="card">
+    <div class="stepTitle">
+      <div>
+        <h2 id="stepHeading">Schritt 1 von 4</h2>
+        <div class="muted" id="stepSub">Gebäude & Basisdaten</div>
+      </div>
+      <div class="badge">V1 Website</div>
+    </div>
+    <div class="progress"><div class="bar" id="bar"></div></div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="card" id="step1">
+    <h2>Gebäude & Basisdaten</h2>
+    <div class="grid">
+      <div class="col4">
+        <label>Gebäudetyp</label>
+        <select id="buildingType">
+          <option value="efh">Einfamilienhaus</option>
+          <option value="rh">Reihenhaus</option>
+          <option value="mfh">Mehrfamilienhaus</option>
+        </select>
+      </div>
+
+      <div class="col4">
+        <label>Baujahr (Klasse)</label>
+        <select id="baujahr">
+          <!-- WICHTIG: value sind KEYS, nicht sichtbarer Text -->
+          <option value="bis_1978">bis 1978</option>
+          <option value="1979_1994">1979–1994</option>
+          <option value="1995_2009">1995–2009</option>
+          <option value="ab_2010">ab 2010</option>
+        </select>
+      </div>
+
+      <div class="col4">
+        <label>Wohnfläche (m²)</label>
+        <input id="wf" inputmode="decimal" placeholder="z.B. 140" value="140">
+        <div class="small">Pflichtfeld.</div>
+      </div>
+
+      <div class="col6">
+        <label>Energieträger Heizung</label>
+        <select id="fuel">
+          <option value="gas">Erdgas</option>
+          <option value="oil">Heizöl</option>
+          <option value="district">Fernwärme</option>
+          <option value="electric">Strom (direkt)</option>
+        </select>
+      </div>
+
+      <div class="col6">
+        <label>Optional: Jahresverbrauch (kWh/Jahr)</label>
+        <input id="kwh" inputmode="decimal" placeholder="z.B. 22.000 oder 22000">
+        <div class="small" id="kwhHint"></div>
+      </div>
+
+      <div class="col12 hidden" id="kwhWarnWrap">
+        <div class="box warn">
+          <div class="muted" style="margin-bottom:6px">Hinweis zur Plausibilität</div>
+          <div class="small" id="kwhWarnText"></div>
+        </div>
+      </div>
+
+      <div class="col12">
+        <div class="box warn">
+          <div class="small">
+            Wenn kein Verbrauch angegeben ist, wird ein typischer Wert nach Baujahr angesetzt.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="card hidden" id="step2">
+    <h2>Maßnahmen auswählen</h2>
+    <div class="muted" style="margin-bottom:10px">Wähle die Maßnahmen. Ergebnis = Kosten-Spannen + Indikation.</div>
+    <div class="row" id="measures"></div>
+
+    <div class="box" style="margin-top:12px">
+      <div class="grid">
+        <div class="col6">
+          <label>Optional: Energiepreis (€/kWh)</label>
+          <input id="price" inputmode="decimal" placeholder="z.B. 0,12 oder 0.12">
+          <div class="small" id="priceHint" style="margin-top:6px"></div>
+        </div>
+        <div class="col6">
+          <label>Preisniveau / Risikopuffer</label>
+          <select id="uplift">
+            <option value="0">0% (neutral)</option>
+            <option value="10">+10% (vorsichtig)</option>
+            <option value="20">+20% (sehr vorsichtig)</option>
+          </select>
+          <div class="small" style="margin-top:6px">Grobe Anpassung an regionales Preisniveau.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="card hidden" id="step3">
+    <h2>Zusammenfassung</h2>
+    <div class="box">
+      <div class="muted">Deine Eingaben</div>
+      <div id="summary" style="margin-top:8px"></div>
+    </div>
+    <div class="box ok" style="margin-top:12px">
+      <div class="small">Der Button unten heißt hier <b>„Ergebnis anzeigen“</b> und startet die Berechnung.</div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="card hidden" id="step4">
+    <h2>Ergebnis (Indikation)</h2>
+
+    <div class="kpis">
+      <div class="kpi">
+        <span class="muted">Investition gesamt</span>
+        <b id="invTotal">—</b>
+        <span class="small" id="invRange">—</span>
+      </div>
+      <div class="kpi">
+        <span class="muted">Jährliche Einsparung</span>
+        <b id="savEur">—</b>
+        <span class="small" id="savKwh">—</span>
+      </div>
+      <div class="kpi">
+        <span class="muted">CO₂-Minderung</span>
+        <b id="co2">—</b>
+        <span class="small">kg CO₂/Jahr (indikativ)</span>
+      </div>
+    </div>
+
+    <div class="box" style="margin-top:12px">
+      <div class="muted" style="margin-bottom:8px">Kosten je Maßnahme (Spanne)</div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Maßnahme</th>
+            <th class="right">Kosten min</th>
+            <th class="right">Kosten typisch</th>
+            <th class="right">Kosten max</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="col8">
+        <div class="box warn">
+          <div class="muted" style="margin-bottom:6px">Wichtig</div>
+          <div class="small" id="assumptions"></div>
+        </div>
+      </div>
+      <div class="col4">
+        <div class="box ok cta">
+          <div class="muted">Nächster Schritt</div>
+          <a class="btn" href="#kontakt">Erstberatung / iSFP anfragen</a>
+          <div class="small">
+            Belastbare Werte entstehen erst nach Vor-Ort-Daten (Bauteilaufbau, U-Werte, Anlagentechnik, Nutzerprofil).
+          </div>
+          <button class="btn secondary" id="restartBtn">Neue Berechnung</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <button class="btn secondary" id="backBtn" disabled>Zurück</button>
+      <button class="btn" id="nextBtn">Weiter</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =========================
+   KONFIG
+========================= */
+const baselineKwhPerM2 = {
+  bis_1978: 190,
+  1979_1994: 140,
+  1995_2009: 100,
+  ab_2010: 70
+};
+
+const defaultPrices = { gas:0.12, oil:0.12, district:0.14, electric:0.30 };
+const co2Factors = { gas:0.20088, oil:0.2664, district:0.18, electric:0.363 };
+
+const measuresConfig = [
+  { id:"heat", label:"Heizung optimieren / tauschen", savePctTyp:0.25, costModel:"flat",
+    cost:{min:14000, typ:22000, max:32000} },
+  { id:"facade", label:"Fassade dämmen", savePctTyp:0.20, costModel:"m2_facade",
+    cost:{min:90, typ:140, max:220} },
+  { id:"roof", label:"Dach / oberste Geschossdecke", savePctTyp:0.18, costModel:"m2_roof",
+    cost:{min:70, typ:110, max:180} },
+  { id:"windows", label:"Fenster erneuern", savePctTyp:0.10, costModel:"per_m2_living",
+    cost:{min:80, typ:120, max:200} },
+  { id:"basement", label:"Kellerdecke dämmen", savePctTyp:0.07, costModel:"m2_floor",
+    cost:{min:50, typ:90, max:140} }
+];
+
+/* =========================
+   NORMALIZE + PARSE
+========================= */
+function normalizeBaujahrKey(raw){
+  const s = String(raw || "").trim();
+  const map = {
+    "bis 1978":"bis_1978", "bis_1978":"bis_1978",
+    "1979-1994":"1979_1994", "1979–1994":"1979_1994", "1979_1994":"1979_1994",
+    "1995-2009":"1995_2009", "1995–2009":"1995_2009", "1995_2009":"1995_2009",
+    "ab 2010":"ab_2010", "ab_2010":"ab_2010"
+  };
+  return map[s] || s;
+}
+
+// Baseline-Funktion: Normalisierung + Fallback (gegen Key-Mismatch)
+function getBaselineKwhPerM2(baujahrValue){
+  const raw = String(baujahrValue || "").trim();
+  const key = normalizeBaujahrKey(raw);
+  const b = baselineKwhPerM2[key];
+  if(Number.isFinite(b) && b > 0) return b;
+
+  // Fallbacks: falls value z.B. "1979–1994" statt "1979_1994" o.ä.
+  if(/1979/.test(raw)) return 140;
+  if(/1995/.test(raw)) return 100;
+  if(/1978|bis/i.test(raw)) return 190;
+  if(/2010|ab/i.test(raw)) return 70;
+
+  return 0;
+}
+
+// akzeptiert "0,12", "0.12", "1.234,56", "1,234.56"
+function parseLocaleNumber(v){
+  if(v === null || v === undefined) return 0;
+  let s = String(v).trim();
+  if(!s) return 0;
+  s = s.replace(/\s/g, "");
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+  if(hasComma && hasDot){
+    const lastComma = s.lastIndexOf(",");
+    const lastDot = s.lastIndexOf(".");
+    const decIsComma = lastComma > lastDot;
+    if(decIsComma){
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      s = s.replace(/,/g, "");
+    }
+  } else if(hasComma && !hasDot){
+    s = s.replace(",", ".");
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/* =========================
+   FORMAT (NaN-sicher)
+========================= */
+function fmtEUR0Safe(x){
+  if(!Number.isFinite(x)) return "—";
+  return new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(x);
+}
+function fmtIntSafe(x){
+  if(!Number.isFinite(x)) return "—";
+  return new Intl.NumberFormat('de-DE',{maximumFractionDigits:0}).format(x);
+}
+const pct0 = x => Number.isFinite(x) ? `${Math.round(x*100)}%` : "—";
+
+/* =========================
+   LOGIK
+========================= */
+function estAreas(wf, buildingType){
+  const floors = buildingType === "mfh" ? 3 : 2;
+  const footprint = wf / floors;
+  const facadeFactor = buildingType === "rh" ? 0.70 : (buildingType === "mfh" ? 0.85 : 1.00);
+  const roofArea = footprint * 1.10;
+  const floorArea = footprint;
+  const side = Math.sqrt(footprint);
+  const perimeter = 4 * side;
+  const height = 2.6 * floors;
+  const facadeArea = perimeter * height * 0.95 * facadeFactor;
+  return { roofArea, floorArea, facadeArea };
+}
+
+function combinedSavingPct(selected){
+  let remaining = 1.0;
+  for(const m of selected) remaining *= (1 - m.savePctTyp);
+  return (1 - remaining) * 0.90;
+}
+
+function applyUplift(value, upliftPct){
+  return value * (1 + upliftPct/100);
+}
+
+function costForMeasure(m, areas, wf, upliftPct){
+  let unit = 1;
+  if(m.costModel === "m2_facade") unit = areas.facadeArea;
+  if(m.costModel === "m2_roof") unit = areas.roofArea;
+  if(m.costModel === "m2_floor") unit = areas.floorArea;
+  if(m.costModel === "per_m2_living") unit = wf;
+
+  return {
+    min: applyUplift(m.cost.min * unit, upliftPct),
+    typ: applyUplift(m.cost.typ * unit, upliftPct),
+    max: applyUplift(m.cost.max * unit, upliftPct)
+  };
+}
+
+/* =========================
+   STATE + UI
+========================= */
+const steps = ["step1","step2","step3","step4"];
+let stepIndex = 0;
+
+const stepHeading = document.getElementById("stepHeading");
+const stepSub = document.getElementById("stepSub");
+const bar = document.getElementById("bar");
+const backBtn = document.getElementById("backBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+const measuresEl = document.getElementById("measures");
+for(const m of measuresConfig){
+  const el = document.createElement("label");
+  el.className = "pill";
+  el.innerHTML = `<input type="checkbox" data-mid="${m.id}"><span>${m.label}</span>`;
+  measuresEl.appendChild(el);
+}
+
+function showStep(i){
+  stepIndex = i;
+  steps.forEach((id,idx)=> document.getElementById(id).classList.toggle("hidden", idx !== stepIndex));
+
+  backBtn.disabled = stepIndex === 0;
+
+  if(stepIndex === 2){
+    nextBtn.textContent = "Ergebnis anzeigen";
+    nextBtn.classList.remove("hidden");
+  } else if(stepIndex === 3){
+    nextBtn.classList.add("hidden");
+  } else {
+    nextBtn.textContent = "Weiter";
+    nextBtn.classList.remove("hidden");
+  }
+
+  bar.style.width = `${((stepIndex+1)/steps.length)*100}%`;
+
+  const subs = ["Gebäude & Basisdaten","Maßnahmen auswählen","Zusammenfassung","Ergebnis"];
+  stepHeading.textContent = `Schritt ${stepIndex+1} von ${steps.length}`;
+  stepSub.textContent = subs[stepIndex] || "";
+
+  if(stepIndex === 0) updateKwhHintAndWarning();
+  if(stepIndex === 1) updatePriceHint();
+  if(stepIndex === 2) refreshSummary();
+}
+
+function getState(){
+  const buildingType = document.getElementById("buildingType").value;
+
+  const baujahrRaw = document.getElementById("baujahr").value;
+  const baujahr = normalizeBaujahrKey(baujahrRaw);
+
+  const wf = parseLocaleNumber(document.getElementById("wf").value);
+  const fuel = document.getElementById("fuel").value;
+  const userKwh = parseLocaleNumber(document.getElementById("kwh").value);
+  const userPrice = parseLocaleNumber(document.getElementById("price").value);
+  const upliftPct = parseLocaleNumber(document.getElementById("uplift").value);
+
+  const checked = [...document.querySelectorAll('input[type="checkbox"][data-mid]:checked')]
+    .map(x => x.getAttribute("data-mid"));
+
+  return { buildingType, baujahrRaw, baujahr, wf, fuel, userKwh, userPrice, upliftPct, checked };
+}
+
+function validateStep(idx){
+  const s = getState();
+  if(idx === 0){
+    if(!Number.isFinite(s.wf) || s.wf < 20) return "Bitte eine sinnvolle Wohnfläche eingeben (mind. 20 m²).";
+  }
+  if(idx === 1){
+    if(!s.checked.length) return "Bitte mindestens eine Maßnahme auswählen.";
+  }
+  return "";
+}
+
+backBtn.addEventListener("click", ()=> showStep(Math.max(0, stepIndex-1)));
+
+nextBtn.addEventListener("click", ()=>{
+  const err = validateStep(stepIndex);
+  if(err){ alert(err); return; }
+
+  if(stepIndex === 2){
+    calculateAndShowResult();
+    return;
+  }
+
+  showStep(Math.min(steps.length-1, stepIndex+1));
+});
+
+/* =========================
+   HINTS (Verbrauch + Preis)
+========================= */
+function updateKwhHintAndWarning(){
+  const s = getState();
+  const baseline = getBaselineKwhPerM2(s.baujahrRaw);
+  const assumed = (s.wf > 0 && baseline > 0) ? s.wf * baseline : 0;
+
+  const hint = (assumed > 0)
+    ? `Wenn leer: typischer Ansatz nach Baujahr ca. ${fmtIntSafe(assumed)} kWh/Jahr (≈ ${baseline} kWh/m²a).`
+    : `Wenn leer: typischer Ansatz nach Baujahr.`;
+
+  document.getElementById("kwhHint").textContent = hint;
+
+  const wrap = document.getElementById("kwhWarnWrap");
+  const text = document.getElementById("kwhWarnText");
+
+  if(s.userKwh > 0 && s.wf >= 20){
+    const kwhPerM2 = s.userKwh / s.wf;
+    const low = 40, high = 350;
+    const ratio = (baseline > 0) ? (kwhPerM2 / baseline) : 1;
+
+    if(kwhPerM2 < low){
+      wrap.classList.remove("hidden");
+      text.innerHTML = `Der eingegebene Verbrauch entspricht ca. <b>${fmtIntSafe(kwhPerM2)} kWh/m²a</b> – wirkt sehr niedrig. Prüfe bitte Einheit/Zeitraum.`;
+    } else if(kwhPerM2 > high){
+      wrap.classList.remove("hidden");
+      text.innerHTML = `Der eingegebene Verbrauch entspricht ca. <b>${fmtIntSafe(kwhPerM2)} kWh/m²a</b> – wirkt sehr hoch. Prüfe bitte Einheit/Zeitraum.`;
+    } else if(baseline > 0 && (ratio < 0.5 || ratio > 1.8)){
+      wrap.classList.remove("hidden");
+      text.innerHTML = `Der eingegebene Verbrauch entspricht ca. <b>${fmtIntSafe(kwhPerM2)} kWh/m²a</b> und weicht deutlich vom typischen Richtwert (≈ ${baseline} kWh/m²a) ab. Das kann plausibel sein – ist aber ein Prüfhinweis.`;
+    } else {
+      wrap.classList.add("hidden");
+      text.textContent = "";
+    }
+  } else {
+    wrap.classList.add("hidden");
+    text.textContent = "";
+  }
+}
+
+function updatePriceHint(){
+  const fuel = document.getElementById("fuel").value;
+  const v = defaultPrices[fuel];
+  const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[fuel] || fuel;
+  document.getElementById("priceHint").textContent =
+    Number.isFinite(v) ? `Standardwert für ${fuelLabel}: ${v.toFixed(2)} €/kWh (wird genutzt, wenn Feld leer ist).` : "";
+}
+
+document.getElementById("wf").addEventListener("input", updateKwhHintAndWarning);
+document.getElementById("baujahr").addEventListener("change", updateKwhHintAndWarning);
+document.getElementById("kwh").addEventListener("input", updateKwhHintAndWarning);
+document.getElementById("fuel").addEventListener("change", ()=>{
+  updatePriceHint();
+  if(stepIndex === 2) refreshSummary();
+});
+
+/* =========================
+   SUMMARY
+========================= */
+function refreshSummary(){
+  const s = getState();
+
+  const buildingLabel = ({efh:"Einfamilienhaus",rh:"Reihenhaus",mfh:"Mehrfamilienhaus"})[s.buildingType] || s.buildingType;
+  const baujahrLabel = ({bis_1978:"bis 1978","1979_1994":"1979–1994","1995_2009":"1995–2009",ab_2010:"ab 2010"})[s.baujahr] || s.baujahr;
+  const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[s.fuel] || s.fuel;
+
+  const selected = measuresConfig.filter(m => s.checked.includes(m.id)).map(m => m.label);
+
+  const baseline = getBaselineKwhPerM2(s.baujahrRaw);
+  const baseKwh = (s.userKwh > 0) ? s.userKwh : (s.wf * baseline);
+  const baseNote = (s.userKwh > 0) ? "(Nutzereingabe)" : "(Richtwert)";
+
+  const price = (s.userPrice > 0) ? s.userPrice : (defaultPrices[s.fuel] ?? 0);
+  const priceNote = (s.userPrice > 0) ? "(Nutzereingabe)" : "(Standard)";
+
+  document.getElementById("summary").innerHTML = `
+    <div class="small">
+      <b>Gebäudetyp:</b> ${buildingLabel}<br>
+      <b>Baujahr:</b> ${baujahrLabel}<br>
+      <b>Wohnfläche:</b> ${fmtIntSafe(s.wf)} m²<br>
+      <b>Energieträger:</b> ${fuelLabel}<br>
+      <b>Verbrauchsbasis:</b> ${fmtIntSafe(baseKwh)} kWh/Jahr ${baseNote}<br>
+      <b>Energiepreis:</b> ${price>0 ? price.toFixed(2) : "—"} €/kWh ${priceNote}<br>
+      <b>Preisniveau/Puffer:</b> +${fmtIntSafe(s.upliftPct)}%<br><br>
+      <b>Maßnahmen:</b><br>• ${selected.join("<br>• ")}
+    </div>
+  `;
+}
+
+/* =========================
+   CALC
+========================= */
+function calculateAndShowResult(){
+  const s = getState();
+
+  const baseline = getBaselineKwhPerM2(s.baujahrRaw);
+  if(!(baseline > 0)){
+    alert("Baujahrklasse konnte keinem Richtwert zugeordnet werden. Bitte Auswahl prüfen.");
+    return;
+  }
+
+  const baseKwh = (s.userKwh > 0) ? s.userKwh : (s.wf * baseline);
+
+  let price = (s.userPrice > 0) ? s.userPrice : (defaultPrices[s.fuel] ?? 0);
+  if(!(price > 0) || !Number.isFinite(price)){
+    alert("Bitte Energiepreis eingeben (oder Energieträger prüfen).");
+    return;
+  }
+
+  const selected = measuresConfig.filter(m => s.checked.includes(m.id));
+  const areas = estAreas(s.wf, s.buildingType);
+
+  const costs = selected.map(m => ({ m, c: costForMeasure(m, areas, s.wf, s.upliftPct) }));
+  const invMin = costs.reduce((a,x)=>a+(Number.isFinite(x.c.min)?x.c.min:0),0);
+  const invTyp = costs.reduce((a,x)=>a+(Number.isFinite(x.c.typ)?x.c.typ:0),0);
+  const invMax = costs.reduce((a,x)=>a+(Number.isFinite(x.c.max)?x.c.max:0),0);
+
+  const savePct = combinedSavingPct(selected);
+  const savedKwh = baseKwh * savePct;
+  const savedEur = savedKwh * price;
+  const savedCo2 = savedKwh * (co2Factors[s.fuel] ?? 0);
+
+  document.getElementById("invTotal").textContent = fmtEUR0Safe(invTyp);
+  document.getElementById("invRange").textContent = `Spanne: ${fmtEUR0Safe(invMin)} bis ${fmtEUR0Safe(invMax)}`;
+
+  document.getElementById("savEur").textContent = fmtEUR0Safe(savedEur);
+  document.getElementById("savKwh").textContent = `${fmtIntSafe(savedKwh)} kWh/Jahr (≈ ${pct0(savePct)})`;
+  document.getElementById("co2").textContent = fmtIntSafe(savedCo2);
+
+  const rows = document.getElementById("rows");
+  rows.innerHTML = "";
+  for(const x of costs){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${x.m.label}</td>
+      <td class="right">${fmtEUR0Safe(x.c.min)}</td>
+      <td class="right">${fmtEUR0Safe(x.c.typ)}</td>
+      <td class="right">${fmtEUR0Safe(x.c.max)}</td>
+    `;
+    rows.appendChild(tr);
+  }
+
+  const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[s.fuel] || s.fuel;
+  const baseNote = (s.userKwh > 0) ? "Nutzereingabe" : "Richtwert nach Baujahr";
+
+  document.getElementById("assumptions").innerHTML = `
+    <b>Indikations-Logik:</b> Verbrauchsbasis ${fmtIntSafe(baseKwh)} kWh/Jahr (${baseNote}),
+    kombinierte Einsparung konservativ, Energiepreis ${price.toFixed(2)} €/kWh (${fuelLabel}).
+    <br><br>
+    <b>Hinweis:</b> Ohne Vor-Ort-Daten (Bauteilaufbau/U-Werte, Wärmebrücken, Luftdichtheit, Lüftung, Anlagenauslegung)
+    sind die Werte Richtwerte.
+  `;
+
+  showStep(3);
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+document.getElementById("restartBtn").addEventListener("click", ()=>{
+  document.querySelectorAll('input[type="checkbox"][data-mid]').forEach(x=> x.checked = false);
+  document.getElementById("kwh").value = "";
+  document.getElementById("price").value = "";
+  document.getElementById("uplift").value = "0";
+  updateKwhHintAndWarning();
+  showStep(0);
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+
+// init
+updateKwhHintAndWarning();
+updatePriceHint();
+showStep(0);
+</script>
+
+</body>
+</html>
