@@ -173,22 +173,14 @@
 
   <!-- STEP 3 -->
   <div class="card hidden" id="step3">
-    <h2>Zusammenfassung & Berechnung</h2>
-    <div class="grid">
-      <div class="col8">
-        <div class="box">
-          <div class="muted">Deine Eingaben</div>
-          <div id="summary" style="margin-top:8px"></div>
-        </div>
-      </div>
-      <div class="col4">
-        <div class="box ok">
-          <div class="muted">Berechnung starten</div>
-          <button class="btn" id="calcBtn" style="margin-top:10px;width:100%">Ergebnis anzeigen</button>
-          <div class="small" style="margin-top:8px">
-            Alle Berechnungen laufen lokal im Browser. Es werden keine Daten automatisch gespeichert oder übertragen.
-          </div>
-        </div>
+    <h2>Zusammenfassung</h2>
+    <div class="box">
+      <div class="muted">Deine Eingaben</div>
+      <div id="summary" style="margin-top:8px"></div>
+    </div>
+    <div class="box ok" style="margin-top:12px">
+      <div class="small">
+        Der Button unten heißt in diesem Schritt <b>„Ergebnis anzeigen“</b> und startet die Berechnung.
       </div>
     </div>
   </div>
@@ -200,17 +192,17 @@
     <div class="kpis">
       <div class="kpi">
         <span class="muted">Investition gesamt</span>
-        <b id="invTotal">–</b>
-        <span class="small" id="invRange">–</span>
+        <b id="invTotal">—</b>
+        <span class="small" id="invRange">—</span>
       </div>
       <div class="kpi">
         <span class="muted">Jährliche Einsparung</span>
-        <b id="savEur">–</b>
-        <span class="small" id="savKwh">–</span>
+        <b id="savEur">—</b>
+        <span class="small" id="savKwh">—</span>
       </div>
       <div class="kpi">
         <span class="muted">CO₂-Minderung</span>
-        <b id="co2">–</b>
+        <b id="co2">—</b>
         <span class="small">kg CO₂/Jahr (indikativ)</span>
       </div>
     </div>
@@ -264,71 +256,316 @@
 /* =========================
    KONFIG
 ========================= */
-const baselineKwhPerM2 = {
-  bis_1978: 190,
-  1979_1994: 140,
-  1995_2009: 100,
-  ab_2010: 70
-};
+const baselineKwhPerM2 = { bis_1978:190, 1979_1994:140, 1995_2009:100, ab_2010:70 };
 
-const defaultPrices = {
-  gas: 0.12,
-  oil: 0.12,
-  district: 0.14,
-  electric: 0.30
-};
+const defaultPrices = { gas:0.12, oil:0.12, district:0.14, electric:0.30 };
 
-const co2Factors = {
-  gas: 0.20088,
-  oil: 0.2664,
-  district: 0.18,
-  electric: 0.363
-};
+const co2Factors = { gas:0.20088, oil:0.2664, district:0.18, electric:0.363 };
 
 const measuresConfig = [
   { id:"heat", label:"Heizung optimieren / tauschen", savePctTyp:0.25, costModel:"flat",
     cost:{min:14000, typ:22000, max:32000} },
-
   { id:"facade", label:"Fassade dämmen", savePctTyp:0.20, costModel:"m2_facade",
     cost:{min:90, typ:140, max:220} },
-
   { id:"roof", label:"Dach / oberste Geschossdecke", savePctTyp:0.18, costModel:"m2_roof",
     cost:{min:70, typ:110, max:180} },
-
   { id:"windows", label:"Fenster erneuern", savePctTyp:0.10, costModel:"per_m2_living",
     cost:{min:80, typ:120, max:200} },
-
   { id:"basement", label:"Kellerdecke dämmen", savePctTyp:0.07, costModel:"m2_floor",
     cost:{min:50, typ:90, max:140} }
 ];
 
 /* =========================
    PARSING (DE/EN robust)
-   - "0,12"  -> 0.12
-   - "0.12"  -> 0.12
-   - "1.234,56" -> 1234.56
-   - "1,234.56" -> 1234.56
 ========================= */
 function parseLocaleNumber(v){
   if(v === null || v === undefined) return 0;
   let s = String(v).trim();
   if(!s) return 0;
   s = s.replace(/\s/g, "");
-
   const hasComma = s.includes(",");
   const hasDot = s.includes(".");
-
   if(hasComma && hasDot){
-    // Letztes Trennzeichen entscheidet Dezimaltrenner
     const lastComma = s.lastIndexOf(",");
     const lastDot = s.lastIndexOf(".");
     const decIsComma = lastComma > lastDot;
-
     if(decIsComma){
-      // 1.234,56 -> tausender '.' raus, ',' -> '.'
       s = s.replace(/\./g, "").replace(",", ".");
     } else {
-      // 1,234.56 -> tausender ',' raus
       s = s.replace(/,/g, "");
     }
   } else if(hasComma && !hasDot){
+    s = s.replace(",", ".");
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/* =========================
+   FORMAT (NaN-sicher)
+========================= */
+function fmtEUR0Safe(x){
+  if(!Number.isFinite(x)) return "—";
+  return new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(x);
+}
+function fmtIntSafe(x){
+  if(!Number.isFinite(x)) return "—";
+  return new Intl.NumberFormat('de-DE',{maximumFractionDigits:0}).format(x);
+}
+const pct0 = x => Number.isFinite(x) ? `${Math.round(x*100)}%` : "—";
+
+/* =========================
+   LOGIK
+========================= */
+function estAreas(wf, buildingType){
+  const floors = buildingType === "mfh" ? 3 : 2;
+  const footprint = wf / floors;
+  const facadeFactor = buildingType === "rh" ? 0.70 : (buildingType === "mfh" ? 0.85 : 1.00);
+  const roofArea = footprint * 1.10;
+  const floorArea = footprint;
+  const side = Math.sqrt(footprint);
+  const perimeter = 4 * side;
+  const height = 2.6 * floors;
+  const facadeArea = perimeter * height * 0.95 * facadeFactor;
+  return { roofArea, floorArea, facadeArea };
+}
+
+function combinedSavingPct(selected){
+  let remaining = 1.0;
+  for(const m of selected) remaining *= (1 - m.savePctTyp);
+  return (1 - remaining) * 0.90;
+}
+
+function applyUplift(value, upliftPct){
+  return value * (1 + upliftPct/100);
+}
+
+function costForMeasure(m, areas, wf, upliftPct){
+  let unit = 1;
+  if(m.costModel === "m2_facade") unit = areas.facadeArea;
+  if(m.costModel === "m2_roof") unit = areas.roofArea;
+  if(m.costModel === "m2_floor") unit = areas.floorArea;
+  if(m.costModel === "per_m2_living") unit = wf;
+  return {
+    min: applyUplift(m.cost.min * unit, upliftPct),
+    typ: applyUplift(m.cost.typ * unit, upliftPct),
+    max: applyUplift(m.cost.max * unit, upliftPct)
+  };
+}
+
+/* =========================
+   UI
+========================= */
+const steps = ["step1","step2","step3","step4"];
+let stepIndex = 0;
+
+const stepHeading = document.getElementById("stepHeading");
+const stepSub = document.getElementById("stepSub");
+const bar = document.getElementById("bar");
+
+const backBtn = document.getElementById("backBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+const measuresEl = document.getElementById("measures");
+for(const m of measuresConfig){
+  const el = document.createElement("label");
+  el.className = "pill";
+  el.innerHTML = `<input type="checkbox" data-mid="${m.id}"><span>${m.label}</span>`;
+  measuresEl.appendChild(el);
+}
+
+function updatePriceHint(){
+  const fuel = document.getElementById("fuel").value;
+  const v = defaultPrices[fuel];
+  const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[fuel] || fuel;
+  document.getElementById("priceHint").textContent =
+    Number.isFinite(v) ? `Standardwert für ${fuelLabel}: ${v.toFixed(2)} €/kWh (wird genutzt, wenn Feld leer ist).` : "";
+}
+
+document.getElementById("fuel").addEventListener("change", ()=>{
+  updatePriceHint();
+  if(stepIndex === 2) refreshSummary();
+});
+
+function showStep(i){
+  stepIndex = i;
+
+  steps.forEach((id,idx)=>{
+    document.getElementById(id).classList.toggle("hidden", idx !== stepIndex);
+  });
+
+  backBtn.disabled = stepIndex === 0;
+
+  // Button-Logik nach Wunsch:
+  // - Schritt 1/2: "Weiter"
+  // - Schritt 3: "Ergebnis anzeigen" (führt Berechnung aus)
+  // - Schritt 4: kein Next-Button
+  if(stepIndex === 2){
+    nextBtn.textContent = "Ergebnis anzeigen";
+    nextBtn.classList.remove("hidden");
+  } else if(stepIndex === 3){
+    nextBtn.classList.add("hidden");
+  } else {
+    nextBtn.textContent = "Weiter";
+    nextBtn.classList.remove("hidden");
+  }
+
+  bar.style.width = `${((stepIndex+1)/steps.length)*100}%`;
+  stepHeading.textContent = `Schritt ${stepIndex+1} von ${steps.length}`;
+  const subs = ["Gebäude & Basisdaten","Maßnahmen auswählen","Zusammenfassung","Ergebnis"];
+  stepSub.textContent = subs[stepIndex] || "";
+
+  if(stepIndex === 1) updatePriceHint();
+  if(stepIndex === 2) refreshSummary();
+}
+
+function getState(){
+  const buildingType = document.getElementById("buildingType").value;
+  const baujahr = document.getElementById("baujahr").value;
+  const wf = parseLocaleNumber(document.getElementById("wf").value);
+  const fuel = document.getElementById("fuel").value;
+  const userKwh = parseLocaleNumber(document.getElementById("kwh").value);
+  const userPrice = parseLocaleNumber(document.getElementById("price").value);
+  const upliftPct = parseLocaleNumber(document.getElementById("uplift").value);
+
+  const checked = [...document.querySelectorAll('input[type="checkbox"][data-mid]:checked')]
+    .map(x => x.getAttribute("data-mid"));
+
+  return { buildingType, baujahr, wf, fuel, userKwh, userPrice, upliftPct, checked };
+}
+
+function validateStep(idx){
+  const s = getState();
+  if(idx === 0){
+    if(!Number.isFinite(s.wf) || s.wf < 20) return "Bitte eine sinnvolle Wohnfläche eingeben (mind. 20 m²).";
+  }
+  if(idx === 1){
+    if(!s.checked.length) return "Bitte mindestens eine Maßnahme auswählen.";
+  }
+  return "";
+}
+
+backBtn.addEventListener("click", ()=> showStep(Math.max(0, stepIndex-1)));
+
+nextBtn.addEventListener("click", ()=>{
+  // Validierung aktueller Schritt
+  const err = validateStep(stepIndex);
+  if(err){ alert(err); return; }
+
+  // Wenn wir in Schritt 3 sind, soll "Ergebnis anzeigen" berechnen (statt weiterzugehen)
+  if(stepIndex === 2){
+    calculateAndShowResult();
+    return;
+  }
+
+  // Normal weiter
+  showStep(Math.min(steps.length-1, stepIndex+1));
+});
+
+function refreshSummary(){
+  const s = getState();
+  const buildingLabel = ({efh:"Einfamilienhaus",rh:"Reihenhaus",mfh:"Mehrfamilienhaus"})[s.buildingType] || s.buildingType;
+  const baujahrLabel = ({bis_1978:"bis 1978","1979_1994":"1979–1994","1995_2009":"1995–2009",ab_2010:"ab 2010"})[s.baujahr] || s.baujahr;
+  const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[s.fuel] || s.fuel;
+
+  const selected = measuresConfig.filter(m => s.checked.includes(m.id)).map(m => m.label);
+
+  const baseline = baselineKwhPerM2[s.baujahr] ?? 0;
+  const baseKwh = (s.userKwh > 0) ? s.userKwh : (s.wf * baseline);
+  const price = (s.userPrice > 0) ? s.userPrice : (defaultPrices[s.fuel] ?? 0);
+
+  document.getElementById("summary").innerHTML = `
+    <div class="small">
+      <b>Gebäudetyp:</b> ${buildingLabel}<br>
+      <b>Baujahr:</b> ${baujahrLabel}<br>
+      <b>Wohnfläche:</b> ${fmtIntSafe(s.wf)} m²<br>
+      <b>Energieträger:</b> ${fuelLabel}<br>
+      <b>Verbrauchsbasis:</b> ${fmtIntSafe(baseKwh)} kWh/Jahr ${s.userKwh>0 ? "(Nutzereingabe)" : "(Richtwert)"}<br>
+      <b>Energiepreis:</b> ${price>0 ? price.toFixed(2) : "—"} €/kWh ${s.userPrice>0 ? "(Nutzereingabe)" : "(Standard)"}<br>
+      <b>Preisniveau/Puffer:</b> +${fmtIntSafe(s.upliftPct)}%<br><br>
+      <b>Maßnahmen:</b><br>• ${selected.join("<br>• ")}
+    </div>
+  `;
+}
+
+function calculateAndShowResult(){
+  // Zusätzliche Validierung (falls Nutzer zurück/weiter springt)
+  const err = validateStep(0) || validateStep(1);
+  if(err){ alert(err); return; }
+
+  const s = getState();
+
+  const baseline = baselineKwhPerM2[s.baujahr] ?? 0;
+  const baseKwh = (s.userKwh > 0) ? s.userKwh : (s.wf * baseline);
+
+  let price = (s.userPrice > 0) ? s.userPrice : (defaultPrices[s.fuel] ?? 0);
+  if(!(price > 0) || !Number.isFinite(price)){
+    alert("Bitte Energiepreis eingeben (oder Energieträger prüfen).");
+    return;
+  }
+  if(!(baseKwh > 0) || !Number.isFinite(baseKwh)){
+    alert("Bitte Wohnfläche/Verbrauch prüfen.");
+    return;
+  }
+
+  const selected = measuresConfig.filter(m => s.checked.includes(m.id));
+  const areas = estAreas(s.wf, s.buildingType);
+
+  const costs = selected.map(m => ({ m, c: costForMeasure(m, areas, s.wf, s.upliftPct) }));
+
+  const invMin = costs.reduce((a,x)=>a+(Number.isFinite(x.c.min)?x.c.min:0),0);
+  const invTyp = costs.reduce((a,x)=>a+(Number.isFinite(x.c.typ)?x.c.typ:0),0);
+  const invMax = costs.reduce((a,x)=>a+(Number.isFinite(x.c.max)?x.c.max:0),0);
+
+  const savePct = combinedSavingPct(selected);
+  const savedKwh = baseKwh * savePct;
+  const savedEur = savedKwh * price;
+  const savedCo2 = savedKwh * (co2Factors[s.fuel] ?? 0);
+
+  document.getElementById("invTotal").textContent = fmtEUR0Safe(invTyp);
+  document.getElementById("invRange").textContent = `Spanne: ${fmtEUR0Safe(invMin)} bis ${fmtEUR0Safe(invMax)}`;
+
+  document.getElementById("savEur").textContent = fmtEUR0Safe(savedEur);
+  document.getElementById("savKwh").textContent = `${fmtIntSafe(savedKwh)} kWh/Jahr (≈ ${pct0(savePct)})`;
+  document.getElementById("co2").textContent = fmtIntSafe(savedCo2);
+
+  const rows = document.getElementById("rows");
+  rows.innerHTML = "";
+  for(const x of costs){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${x.m.label}</td>
+      <td class="right">${fmtEUR0Safe(x.c.min)}</td>
+      <td class="right">${fmtEUR0Safe(x.c.typ)}</td>
+      <td class="right">${fmtEUR0Safe(x.c.max)}</td>
+    `;
+    rows.appendChild(tr);
+  }
+
+  const fuelLabel = ({gas:"Erdgas",oil:"Heizöl",district:"Fernwärme",electric:"Strom (direkt)"})[s.fuel] || s.fuel;
+  document.getElementById("assumptions").innerHTML = `
+    <b>Indikations-Logik:</b> Verbrauchsbasis ${fmtIntSafe(baseKwh)} kWh/Jahr (${s.userKwh>0 ? "Nutzereingabe" : "Richtwert"}),
+    kombinierte Einsparung konservativ, Energiepreis ${price.toFixed(2)} €/kWh (${fuelLabel}).
+    <br><br>
+    <b>Hinweis:</b> Ohne Vor-Ort-Daten (Bauteilaufbau/U-Werte, Wärmebrücken, Luftdichtheit, Lüftung, Anlagenauslegung) sind die Werte Richtwerte.
+  `;
+
+  showStep(3);
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+document.getElementById("restartBtn").addEventListener("click", ()=>{
+  document.querySelectorAll('input[type="checkbox"][data-mid]').forEach(x=> x.checked = false);
+  document.getElementById("kwh").value = "";
+  document.getElementById("price").value = "";
+  document.getElementById("uplift").value = "0";
+  showStep(0);
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+
+// init
+updatePriceHint();
+showStep(0);
+</script>
+</body>
+</html>
